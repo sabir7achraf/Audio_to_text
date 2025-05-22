@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>تقييم القراءة المشددة</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo&display=swap');
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      background-color: #f0f4f8;
+      margin: 0;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      color: #222;
+    }
+
+    h1 {
+      margin-bottom: 40px;
+      font-weight: 700;
+      font-size: 2.2rem;
+      color: #34495e;
+    }
+
+    form {
+      background: white;
+      padding: 30px 40px;
+      border-radius: 10px;
+      box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 420px;
+      box-sizing: border-box;
+      text-align: center;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 12px 15px;
+      font-size: 1rem;
+      border: 2px solid #3498db;
+      border-radius: 6px;
+      box-sizing: border-box;
+      margin-bottom: 20px;
+      text-align: center;
+      direction: ltr;
+    }
+
+    button {
+      background-color: #3498db;
+      border: none;
+      color: white;
+      padding: 14px 30px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      width: 100%;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    #result {
+      margin-top: 40px;
+      font-size: 1.2rem;
+      color: #2c3e50;
+      background: white;
+      padding: 25px 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      max-width: 700px;
+      word-break: break-word;
+      white-space: pre-wrap;
+      text-align: right;
+    }
+
+    #error {
+      margin-top: 30px;
+      color: #e74c3c;
+      font-weight: 700;
+      max-width: 420px;
+      text-align: center;
+    }
+
+    @media (max-width: 480px) {
+      form {
+        padding: 25px 20px;
+      }
+      button {
+        font-size: 1rem;
+        padding: 12px 20px;
+      }
+      #result {
+        font-size: 1rem;
+        padding: 15px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>تقييم القراءة المشددة</h1>
+
+  <form id="evalForm" novalidate>
+    <label for="recordIdInput">أدخل رقم التسجيل (Record ID):</label>
+    <input type="number" id="recordIdInput" name="recordIdInput" required min="1" placeholder="مثال: 1" aria-label="أدخل رقم التسجيل" />
+    <button type="submit">تقييم القراءة</button>
+  </form>
+
+  <div id="error" role="alert" aria-live="assertive"></div>
+  <div id="result" role="region" aria-live="polite"></div>
+
+  <script>
+    const form = document.getElementById('evalForm');
+    const resultDiv = document.getElementById('result');
+    const errorDiv = document.getElementById('error');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorDiv.textContent = "";
+      resultDiv.textContent = "";
+
+      const recordId = document.getElementById('recordIdInput').value.trim();
+      if (!recordId) {
+        errorDiv.textContent = "❗ الرجاء إدخال رقم التسجيل.";
+        return;
+      }
+
+      resultDiv.textContent = "⏳ جاري التقييم...";
+
+      try {
+        const response = await fetch(`/evaluer_lecture_diacritisee/${recordId}`, {
+          method: 'GET'
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          resultDiv.innerHTML = `
+            <strong>النتيجة (٪):</strong> ${data.score_lecture} %<br><br>
+            <strong>النص المستخرج:</strong><br>${data.transcription}<br><br>
+            <strong>النص الأصلي:</strong><br>${data.texte_original}
+          `;
+        } else {
+          resultDiv.textContent = "";
+          errorDiv.textContent = `❌ خطأ: ${data.error || "حدث خطأ غير متوقع"}`;
+        }
+      } catch (error) {
+        resultDiv.textContent = "";
+        errorDiv.textContent = "❌ فشل الاتصال بالخادم";
+        console.error(error);
+      }
+    });
+  </script>
+</body>
+</html>
