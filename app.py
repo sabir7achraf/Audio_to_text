@@ -8,20 +8,39 @@ import json
 import numpy as np
 
 from audio_processor import ArabicAudioProcessor
+from evaluator import ArabicReadingEvaluator
+
 
 
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'wav', 'ogg', 'mp3', 'm4a'}
 
+
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost:3306/Agentiai'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost:3306/agentiai'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 db = SQLAlchemy(app)
 processor = ArabicAudioProcessor()
+
+
+
+try:
+    gemini_api_key = "AIzaSyBDk0RlHr-rHMqePNcEWKz1C9cz7cHgiDk"
+    if gemini_api_key:
+        reading_evaluator = ArabicReadingEvaluator(api_key=gemini_api_key)
+        print("✅ Reading evaluator initialized successfully")
+    else:
+        reading_evaluator = None
+        print("⚠️ GEMINI_API_KEY not found. Reading evaluation will not be available.")
+        print("   To enable reading evaluation, set your Gemini API key:")
+        print("   export GEMINI_API_KEY='your-api-key-here'")
+except Exception as e:
+    reading_evaluator = None
+    print(f"❌ Failed to initialize reading evaluator: {e}")
 
 class Recorder(db.Model):
     __tablename__ = 'recorder'
@@ -58,6 +77,8 @@ def convert_numpy_types(obj):
         return [convert_numpy_types(item) for item in obj]
     else:
         return obj
+
+     
 
 @app.route("/")
 def index():
@@ -196,7 +217,7 @@ def retry_transcription(record_id):
         return jsonify({"error": str(e)}), 500
 
 @app.route("/evaluer_lecture_diacritisee/<int:record_id>", methods=["GET"])
-def evaluer_lecture_diacritisee_endpoint(record_id):
+def evaluer_lecture_diacritisee_endpoint(record_id, text):
     record = Recorder.query.get(record_id)
     if not record:
         return jsonify({"error": f"Enregistrement avec id={record_id} non trouvé"}), 404
@@ -207,19 +228,219 @@ def evaluer_lecture_diacritisee_endpoint(record_id):
             "record_id": record.id
         }), 400
     
-    texte = Texte.query.filter_by(idTexte=record.idTexte).first()
+
     if not texte:
-        return jsonify({"error": f"Texte original avec idTexte={record.idTexte} non trouvé"}), 404
+        return jsonify({"error": f"Texte original non trouvé"}), 404
     
-    score = evaluer_lecture_diacritisee(record.transcription, texte.texteContent)
+    score = evaluer_lecture_diacritisee(record.transcription, texte)
     
     return jsonify({
         "record_id": record.id,
         "idTexte": record.idTexte,
         "score_lecture": score,
         "transcription": record.transcription,
-        "texte_original": texte.texteContent
+        "texte_original": texte
     })
 
+@app.route("/evaluate_reading/<int:record_id>", methods=["POST"])
+def evaluate_reading_endpoint(record_id):
+    """Endpoint to evaluate reading using LLM"""
+    
+    if not reading_evaluator:
+        return jsonify({
+            "error": "خدمة تقييم القراءة غير متوفرة. يرجى التأكد من إعداد مفتاح Gemini API."
+        }), 503
+    
+    record = Recorder.query.get(record_id)
+    if not record:
+        return jsonify({"error": f"Enregistrement avec id={record_id} non trouvé"}), 404
+    
+    if not record.transcription:
+        return jsonify({
+            "error": "لا توجد نسخة نصية متاحة لهذا التسجيل. يرجى التأكد من معالجة الصوت أولاً.",
+            "record_id": record.id
+        }), 400
+    
+    texte = Texte.query.filter_by(idTexte=record.idTexte).first()
+    if not texte:
+        return jsonify({"error": f"النص الأصلي مع معرف {record.idTexte} غير موجود"}), 404
+    
+    try:
+        # Evaluate reading using LLM
+        evaluation = reading_evaluator.evaluate_reading(
+            transcription=record.transcription,
+            original_text=texte.texteContent
+        )
+        
+        # Convert to JSON-serializable format
+        evaluation_data = {
+            "record_id": record.id,
+            "student_id": record.id_eleve,
+            "text_id": record.idTexte,
+            "evaluation": {
+                "overall_score": evaluation.overall_score,
+                "level": evaluation.level.value,
+                "scores": {
+                    "pronunciation": evaluation.pronunciation_score,
+                    "fluency": evaluation.fluency_score,
+                    "accuracy": evaluation.accuracy_score,
+                    "comprehension": evaluation.comprehension_score
+                },
+                "feedback": evaluation.feedback,
+                "strengths": evaluation.strengths,
+                "areas_to_improve": evaluation.areas_to_improve,
+                "suggestions": evaluation.suggestions,
+                "detailed_feedback": evaluation.detailed_feedback
+            },
+            "texts": {
+                "original": texte.texteContent,
+                "transcribed": record.transcription
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        return jsonify({
+            "success": True,
+            "message": "تم تقييم القراءة بنجاح",
+            "data": evaluation_data
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "error": f"حدث خطأ أثناء تقييم القراءة: {str(e)}",
+            "record_id": record.id
+        }), 500
+@app.route("/test_evaluate_reading/<int:record_id>", methods=["POST"])
+def test_evaluate_reading(record_id):
+    """Test endpoint to evaluate reading with provided original text"""
+    
+    if not reading_evaluator:
+        return jsonify({
+            "error": "خدمة تقييم القراءة غير متوفرة. يرجى التأكد من إعداد مفتاح Gemini API."
+        }), 503
+    
+    record = Recorder.query.get(record_id)
+    if not record:
+        return jsonify({"error": f"Enregistrement avec id={record_id} non trouvé"}), 404
+    
+    if not record.transcription:
+        return jsonify({
+            "error": "لا توجد نسخة نصية متاحة لهذا التسجيل. يرجى التأكد من معالجة الصوت أولاً.",
+            "record_id": record.id
+        }), 400
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "لم يتم إرسال بيانات JSON"}), 400
+    
+    original_text = data.get('original_text', '').strip()
+    if not original_text:
+        return jsonify({"error": "النص الأصلي مطلوب"}), 400
+    
+    try:
+        evaluation = reading_evaluator.evaluate_reading(
+            transcription=record.transcription,
+            original_text=original_text
+        )
+        
+        evaluation_data = {
+            "record_id": record.id,
+            "student_id": record.id_eleve,
+            "text_id": record.idTexte,
+            "evaluation": {
+                "overall_score": evaluation.overall_score,
+                "level": evaluation.level.value,
+                "scores": {
+                    "pronunciation": evaluation.pronunciation_score,
+                    "fluency": evaluation.fluency_score,
+                    "accuracy": evaluation.accuracy_score,
+                    "comprehension": evaluation.comprehension_score
+                },
+                "feedback": evaluation.feedback,
+                "strengths": evaluation.strengths,
+                "areas_to_improve": evaluation.areas_to_improve,
+                "suggestions": evaluation.suggestions,
+                "detailed_feedback": evaluation.detailed_feedback
+            },
+            "texts": {
+                "original": original_text,
+                "transcribed": record.transcription
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        return jsonify({
+            "success": True,
+            "message": "تم تقييم القراءة بنجاح",
+            "data": evaluation_data
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "error": f"حدث خطأ أثناء تقييم القراءة: {str(e)}",
+            "record_id": record.id
+        }), 500
+@app.route("/evaluate_reading_quick", methods=["POST"])
+def evaluate_reading_quick():
+    """Quick evaluation endpoint that accepts text directly"""
+    
+    if not reading_evaluator:
+        return jsonify({
+            "error": "خدمة تقييم القراءة غير متوفرة"
+        }), 503
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "لم يتم إرسال بيانات JSON"}), 400
+    
+    transcription = data.get('transcription', '').strip()
+    original_text = data.get('original_text', '').strip()
+    
+    if not transcription or not original_text:
+        return jsonify({
+            "error": "النص المنطوق والنص الأصلي مطلوبان"
+        }), 400
+    
+    try:
+        evaluation = reading_evaluator.evaluate_reading(transcription, original_text)
+        
+        return jsonify({
+            "success": True,
+            "evaluation": {
+                "overall_score": evaluation.overall_score,
+                "level": evaluation.level.value,
+                "scores": {
+                    "pronunciation": evaluation.pronunciation_score,
+                    "fluency": evaluation.fluency_score,
+                    "accuracy": evaluation.accuracy_score,
+                    "comprehension": evaluation.comprehension_score
+                },
+                "feedback": evaluation.feedback,
+                "strengths": evaluation.strengths,
+                "areas_to_improve": evaluation.areas_to_improve,
+                "suggestions": evaluation.suggestions
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "error": f"حدث خطأ أثناء التقييم: {str(e)}"
+        }), 500
 if __name__ == "__main__":
+  # Replace with actual API key
+
+        
+        # # Example texts
+        # original = "مرحباً بكم في مدرستنا الجميلة حيث نتعلم ونلعب معاً"
+        # transcribed = "مرحبا بكم في مدرستنا الجميله حيث نتعلم ونلعب"
+        
+        # # Evaluate reading
+        # evaluation = evaluator.evaluate_reading(transcribed, original)
+        
+        # print("Reading Evaluation Results:")
+        # print(f"Overall Score: {evaluation.overall_score}/100")
+        # print(f"Level: {evaluation.level.value}")
+        # print(f"\nFeedback:\n{evaluation.feedback}")
+        
+
     app.run(debug=True)
