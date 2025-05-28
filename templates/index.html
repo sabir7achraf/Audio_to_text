@@ -4,239 +4,216 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تقييم القراءة العربية</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
-            font-family: 'Amiri', sans-serif;
+            font-family: 'Noto Sans Arabic', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container {
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
-            background-color: #f5f5f5;
-            text-align: right;
         }
-        h1, h2 {
-            color: #2c3e50;
-        }
-        .section {
-            background: white;
-            padding: 20px;
-            margin: 20px 0;
+        .error-item {
+            border: 1px solid #e5e7eb;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #fff;
         }
-        #recordButton {
-            background-color: #e74c3c;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        #recordButton.recording {
-            background-color: #c0392b;
-        }
-        #fileInput {
-            margin: 10px 0;
-        }
-        #results {
-            display: none;
-            margin-top: 20px;
-        }
-        .score {
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        .feedback-section {
-            margin-top: 15px;
+        audio {
+            width: 100%;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
-    <h1>🎤 تقييم القراءة العربية</h1>
-    <p>اقرأ النص بوضوح وسنقوم بتقييم قراءتك</p>
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center mb-6">🎤 تقييم القراءة العربية</h1>
+        <p class="text-center text-lg mb-8">اقرأ النص بوضوح وسنقوم بتقييم قراءتك</p>
 
-    <div class="section">
-        <h2>📝 النص المطلوب قراءته</h2>
-        <p id="originalText">
-            مَرْحَباً بِكُمْ فِي مَدْرَسَتِنَا الْجَمِيلَةِ حَيْثُ نَتَعَلَّمُ وَنَلْعَبُ مَعاً. نَحْنُ نُحِبُّ الْقِرَاءَةَ وَالْكِتَابَةَ وَالرِّيَاضِيَاتِ. مُعَلِّمُونَا طَيِّبُونَ وَمُتَفَهِّمُونَ، وَهُمْ يُسَاعِدُونَنَا فِي تَعَلُّمِ أَشْيَاءَ جَدِيدَةٍ كُلَّ يَوْمٍ.
-        </p>
-    </div>
+        <!-- النص المطلوب قراءته -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4">📝 النص المطلوب قراءته</h2>
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <p id="original-text" class="text-lg leading-relaxed">
+                    مَرْحَباً بِكُمْ فِي مَدْرَسَتِنَا الْجَمِيلَةِ حَيْثُ نَتَعَلَّمُ وَنَلْعَبُ مَعاً. نَحْنُ نُحِبُّ الْقِرَاءَةَ وَالْكِتَابَةَ وَالرِّيَاضِيَاتِ. مُعَلِّمُونَا طَيِّبُونَ وَمُتَفَهِّمُونَ، وَهُمْ يُسَاعِدُونَنَا فِي تَعَلُّمِ أَشْيَاءَ جَدِيدَةٍ كُلَّ يَوْمٍ.
+                </p>
+            </div>
+        </div>
 
-    <div class="section">
-        <h2>🎙️ تسجيل القراءة</h2>
-        <button id="recordButton">🎤 اضغط للبدء في التسجيل</button>
-        <input type="file" id="fileInput" accept=".wav,.ogg,.mp3,.m4a" />
-        <p>📁 أو اختر ملف صوتي</p>
-        <div id="status"></div>
-    </div>
+        <!-- تسجيل القراءة -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4">🎙️ تسجيل القراءة</h2>
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <button id="start-recording" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mb-4">🎤 اضغط للبدء في التسجيل</button>
+                <p class="text-center mb-4">📁 أو اختر ملف صوتي</p>
+                <input type="file" id="audio-file" accept=".wav,.ogg,.mp3,.m4a" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-500 file:text-white hover:file:bg-blue-600">
+            </div>
+        </div>
 
-    <div class="section" id="results">
-        <h2>📊 نتائج التقييم</h2>
-        <div id="evaluationResults"></div>
+        <!-- نتائج التقييم -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4">📊 نتائج التقييم</h2>
+            <div id="results" class="bg-white p-6 rounded-lg shadow-md">
+                <p class="text-gray-500">لم يتم إجراء تقييم بعد. قم بتسجيل أو رفع ملف صوتي لبدء التقييم.</p>
+            </div>
+        </div>
+
+        <!-- تصحيح النطق -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4">🔍 تصحيح النطق</h2>
+            <div id="pronunciation-feedback" class="bg-white p-6 rounded-lg shadow-md">
+                <p class="text-gray-500">سيتم عرض تصحيحات النطق هنا بعد التقييم.</p>
+                <div id="corrected-text" class="hidden mb-4"></div>
+                <div id="corrected-text-audio" class="hidden mb-4"></div>
+                <div id="feedback-audio" class="hidden mb-4"></div>
+                <div id="errors-list" class="mt-4"></div>
+            </div>
+        </div>
     </div>
 
     <script>
-        let mediaRecorder;
-        let audioChunks = [];
-        let isRecording = false;
-        const recordButton = document.getElementById('recordButton');
-        const fileInput = document.getElementById('fileInput');
-        const status = document.getElementById('status');
-        const results = document.getElementById('results');
-        const evaluationResults = document.getElementById('evaluationResults');
-        const originalText = document.getElementById('originalText').textContent.trim();
-
-        // Initialize MediaRecorder
-        async function setupMediaRecorder() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                mediaRecorder.ondataavailable = (event) => {
-                    audioChunks.push(event.data);
-                };
-                mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                    audioChunks = [];
-                    uploadAudio(audioBlob);
-                };
-            } catch (error) {
-                status.textContent = 'خطأ في الوصول إلى الميكروفون: ' + error.message;
-            }
-        }
-
-        // Toggle recording
-        recordButton.addEventListener('click', async () => {
-            if (!mediaRecorder) {
-                await setupMediaRecorder();
-            }
-
-            if (!isRecording) {
-                mediaRecorder.start();
-                isRecording = true;
-                recordButton.textContent = '🎤 توقف عن التسجيل';
-                recordButton.classList.add('recording');
-                status.textContent = 'جاري التسجيل...';
-            } else {
-                mediaRecorder.stop();
-                isRecording = false;
-                recordButton.textContent = '🎤 اضغط للبدء في التسجيل';
-                recordButton.classList.remove('recording');
-                status.textContent = 'تم إيقاف التسجيل، جاري التحميل...';
-            }
-        });
+        // Handle recording (simplified for demo; assumes browser recording API)
+        const startRecordingBtn = document.getElementById('start-recording');
+        const audioFileInput = document.getElementById('audio-file');
+        const resultsDiv = document.getElementById('results');
+        const pronunciationFeedbackDiv = document.getElementById('pronunciation-feedback');
+        const correctedTextDiv = document.getElementById('corrected-text');
+        const correctedTextAudioDiv = document.getElementById('corrected-text-audio');
+        const feedbackAudioDiv = document.getElementById('feedback-audio');
+        const errorsListDiv = document.getElementById('errors-list');
 
         // Handle file upload
-        fileInput.addEventListener('change', (event) => {
+        audioFileInput.addEventListener('change', async (event) => {
             const file = event.target.files[0];
-            if (file) {
-                status.textContent = 'جاري تحميل الملف...';
-                uploadAudio(file);
-            }
-        });
+            if (!file) return;
 
-        // Upload audio to server
-        async function uploadAudio(audio) {
             const formData = new FormData();
-            formData.append('file', audio, 'recording.wav');
-            formData.append('id_eleve', '1'); // Exemple, à remplacer par l'ID réel
-            formData.append('idTexte', '1');  // Exemple, à remplacer par l'ID réel
+            formData.append('file', file);
+            formData.append('id_eleve', 1); // Replace with actual student ID
+            formData.append('idTexte', 1); // Replace with actual text ID
 
             try {
                 const response = await fetch('/upload', {
                     method: 'POST',
                     body: formData
                 });
-                const result = await response.json();
+                const data = await response.json();
 
-                if (response.ok && result.success) {
-                    status.textContent = 'تم تحميل الصوت بنجاح! جاري التقييم...';
-                    evaluateReading(result.record_id);
+                if (data.success) {
+                    resultsDiv.innerHTML = `
+                        <p class="text-green-600">تم التحميل والتفريغ بنجاح!</p>
+                        <p><strong>النص المفرغ:</strong> ${data.transcription}</p>
+                        <p><strong>معرف التسجيل:</strong> ${data.record_id}</p>
+                    `;
+                    // Trigger evaluation
+                    evaluateReading(data.record_id);
                 } else {
-                    status.textContent = 'خطأ: ' + (result.error || result.message || 'فشل التحميل');
+                    resultsDiv.innerHTML = `<p class="text-red-600">خطأ: ${data.error || data.message}</p>`;
                 }
             } catch (error) {
-                status.textContent = 'خطأ في التحميل: ' + error.message;
+                resultsDiv.innerHTML = `<p class="text-red-600">خطأ: ${error.message}</p>`;
             }
-        }
+        });
 
-        // Evaluate reading
+        // Evaluate reading and fetch pronunciation feedback
         async function evaluateReading(recordId) {
             try {
-                const response = await fetch(`/evaluate_reading/${recordId}`, {
+                // Fetch evaluation
+                const evalResponse = await fetch(`/evaluate_reading/${recordId}`, {
                     method: 'POST'
                 });
-                const result = await response.json();
+                const evalData = await evalResponse.json();
 
-                if (response.ok && result.success) {
-                    displayEvaluationResults(result.data);
-                    status.textContent = 'تم التقييم بنجاح!';
-                    results.style.display = 'block';
+                if (evalData.success) {
+                    const eval = evalData.data.evaluation;
+                    resultsDiv.innerHTML = `
+                        <p class="text-green-600">تم تقييم القراءة بنجاح!</p>
+                        <p><strong>الدرجة الكلية:</strong> ${eval.overall_score}/100</p>
+                        <p><strong>المستوى:</strong> ${eval.level}</p>
+                        <p><strong>التفاصيل:</strong></p>
+                        <ul class="list-disc mr-6">
+                            <li>النطق: ${eval.scores.pronunciation}</li>
+                            <li>الطلاقة: ${eval.scores.fluency}</li>
+                            <li>الدقة: ${eval.scores.accuracy}</li>
+                            <li>الفهم: ${eval.scores.comprehension}</li>
+                        </ul>
+                        <p><strong>التغذية الراجعة:</strong> ${eval.feedback}</p>
+                    `;
+
+                    // Fetch pronunciation feedback
+                    const feedbackResponse = await fetch(`/get_audio_feedback/${recordId}`);
+                    const feedbackData = await feedbackResponse.json();
+
+                    if (feedbackData.success) {
+                        const corrections = feedbackData.audio_files;
+                        const pronunciation = evalData.data.pronunciation_corrections;
+
+                        // Display corrected text
+                        if (pronunciation.corrected_text) {
+                            correctedTextDiv.classList.remove('hidden');
+                            correctedTextDiv.innerHTML = `
+                                <p class="font-semibold">النص المصحح:</p>
+                                <p>${pronunciation.corrected_text}</p>
+                            `;
+                        }
+
+                        // Display corrected text audio
+                        if (corrections.corrected_text_audio) {
+                            correctedTextAudioDiv.classList.remove('hidden');
+                            correctedTextAudioDiv.innerHTML = `
+                                <p class="font-semibold">تسجيل النص المصحح:</p>
+                                <audio controls src="${corrections.corrected_text_audio}"></audio>
+                            `;
+                        }
+
+                        // Display feedback audio
+                        if (corrections.feedback_audio) {
+                            feedbackAudioDiv.classList.remove('hidden');
+                            feedbackAudioDiv.innerHTML = `
+                                <p class="font-semibold">التغذية الراجعة الصوتية:</p>
+                                <audio controls src="${corrections.feedback_audio}"></audio>
+                            `;
+                        }
+
+                        // Display pronunciation errors
+                        if (pronunciation.errors && pronunciation.errors.length > 0) {
+                            errorsListDiv.innerHTML = `
+                                <p class="font-semibold">أخطاء النطق:</p>
+                                <div>
+                                    ${pronunciation.errors.map(error => `
+                                        <div class="error-item">
+                                            <p><strong>الكلمة الأصلية:</strong> ${error.original_word}</p>
+                                            <p><strong>الكلمة المنطوقة:</strong> ${error.transcribed_word}</p>
+                                            <p><strong>النطق الصحيح:</strong> ${error.correct_pronunciation}</p>
+                                            <p><strong>نوع الخطأ:</strong> ${error.error_type}</p>
+                                            <p><strong>الدرجة:</strong> ${(error.pronunciation_score * 100).toFixed(2)}%</p>
+                                            ${error.audio_file ? `<audio controls src="${error.audio_file}"></audio>` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            `;
+                        } else {
+                            errorsListDiv.innerHTML = `<p class="text-green-600">لا توجد أخطاء في النطق!</p>`;
+                        }
+                    } else {
+                        pronunciationFeedbackDiv.innerHTML = `<p class="text-red-600">خطأ في استرجاع تصحيح النطق: ${feedbackData.error}</p>`;
+                    }
                 } else {
-                    status.textContent = 'خطأ في التقييم: ' + (result.error || 'فشل التقييم');
+                    resultsDiv.innerHTML = `<p class="text-red-600">خطأ في التقييم: ${evalData.error}</p>`;
                 }
             } catch (error) {
-                status.textContent = 'خطأ في التقييم: ' + error.message;
+                resultsDiv.innerHTML = `<p class="text-red-600">خطأ: ${error.message}</p>`;
             }
         }
 
-//         async function evaluateReadingtest(recordId) {
-//     try {
-//         const response = await fetch(`/test_evaluate_reading/${recordId}`, {
-//             method: 'POST',
-//             headers: {
-//                 'Content-Type': 'application/json'
-//             },
-//             body: JSON.stringify({
-//                 original_text: originalText // Use the text from #originalText
-//             })
-//         });
-//         const result = await response.json();
-
-//         if (response.ok && result.success) {
-//             displayEvaluationResults(result.data);
-//             status.textContent = 'تم التقييم بنجاح!';
-//             results.style.display = 'block';
-//         } else {
-//             status.textContent = 'خطأ في التقييم: ' + (result.error || 'فشل التقييم');
-//         }
-//     } catch (error) {
-//         status.textContent = 'خطأ في التقييم: ' + error.message;
-//     }
-// }
-
-        // Display evaluation results
-        function displayEvaluationResults(data) {
-            const evaluation = data.evaluation;
-            const html = `
-                <div class="feedback-section">
-                    <p><span class="score">التقييم العام: ${evaluation.overall_score}/100</span> (${evaluation.level})</p>
-                    <p><strong>تفصيل الدرجات:</strong></p>
-                    <ul>
-                        <li>النطق: ${evaluation.scores.pronunciation}/100</li>
-                        <li>الطلاقة: ${evaluation.scores.fluency}/100</li>
-                        <li>الدقة: ${evaluation.scores.accuracy}/100</li>
-                        <li>الفهم: ${evaluation.scores.comprehension}/100</li>
-                    </ul>
-                    <p><strong>نقاط القوة:</strong></p>
-                    <ul>
-                        ${evaluation.strengths.map(s => `<li>${s}</li>`).join('')}
-                    </ul>
-                    <p><strong>مجالات التحسين:</strong></p>
-                    <ul>
-                        ${evaluation.areas_to_improve.map(a => `<li>${a}</li>`).join('')}
-                    </ul>
-                    <p><strong>اقتراحات للتحسين:</strong></p>
-                    <ul>
-                        ${evaluation.suggestions.map(s => `<li>${s}</li>`).join('')}
-                    </ul>
-                    <p><strong>التغذية الراجعة:</strong></p>
-                    <p>${evaluation.feedback}</p>
-                    <p><strong>النص الأصلي:</strong> ${data.texts.original}</p>
-                    <p><strong>النص المنطوق:</strong> ${data.texts.transcribed}</p>
-                </div>
-            `;
-            evaluationResults.innerHTML = html;
-        }
+        // Simplified recording (placeholder; implement browser MediaRecorder API as needed)
+        startRecordingBtn.addEventListener('click', () => {
+            alert('ميزة التسجيل غير مدعومة حالياً. يرجى رفع ملف صوتي.');
+        });
     </script>
 </body>
 </html>
