@@ -194,6 +194,71 @@ def upload_and_transcribe():
     else:
         return jsonify({"error": "Format de fichier non autorisé"}), 400
 
+
+@app.route("/uploadd", methods=["POST"])
+def upload_and_transcribee():
+    if 'file' not in request.files:
+        return jsonify({"error": "Aucun fichier reçu"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "Nom de fichier vide"}), 400
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        
+        try:
+            id_eleve = int(request.form.get("id_eleve", 1))
+            idTexte = int(request.form.get("idTexte", 1))
+            
+            # Retrieve original text from Texte table
+            texte = Texte.query.filter_by(idTexte=idTexte).first()
+            if not texte:
+                return jsonify({"error": f"Texte avec idTexte={idTexte} non trouvé"}), 404
+            
+            # Create database record
+            record = Recorder(id_eleve=id_eleve, idTexte=idTexte, file_path=filepath)
+            db.session.add(record)
+            db.session.commit()
+            
+            # Process audio (transcription only, no quality analysis)
+            transcription = processor.transcribe_audio(record.file_path)
+            
+            # Debug: Print transcription
+            print(f"DEBUG - Transcription: {transcription}")
+            
+            response_data = {
+                "success": True,
+                "record_id": record.id,
+                "message": "Fichier enregistré et transcrit avec succès",
+                "transcription": transcription,
+                "pronunciation_corrections": {}
+            }
+            
+            # Store transcription in database
+            record.transcription = transcription
+            
+            # Apply pronunciation correction if available
+            if pronunciation_corrector and texte:
+                corrections = pronunciation_corrector.correct_pronunciation(
+                    original_text=texte.texteContent,
+                    transcribed_text=transcription,
+                    audio_output_dir=AUDIO_CORRECTIONS_FOLDER
+                )
+                record.pronunciation_corrections = json.dumps(corrections, ensure_ascii=False)
+                response_data["pronunciation_corrections"] = corrections
+            
+            db.session.commit()
+            return jsonify(response_data)
+            
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"error": str(e)}), 500
+    else:
+        return jsonify({"error": "Format de fichier non autorisé"}), 400        
+
 @app.route("/analyze_quality/<int:record_id>", methods=["GET"])
 def analyze_audio_quality(record_id):
     record = Recorder.query.get(record_id)
