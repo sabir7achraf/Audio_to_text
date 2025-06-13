@@ -46,9 +46,14 @@
 
         <!-- تسجيل القراءة -->
         <div class="mb-8">
-            <h2 class="text-2xl font-semibold mb-4">🎙️ تسجيل القراءة</h2>
-            <div class="bg-white p-6 rounded-lg shadow-md">
-                <button id="start-recording" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mb-4">🎤 اضغط للبدء في التسجيل</button>
+            <section class="recording-section">
+                <h2>🎙️ تسجيل القراءة</h2>
+                <div class="recording-controls">
+                    <button id="startRecording" class="record-button">🎤 اضغط للبدء في التسجيل</button>
+                    <button id="stopRecording" class="record-button" style="display: none;">🛑 إيقاف التسجيل</button>
+                    <audio id="audioPlayback" controls style="display: none; margin-top: 10px;"></audio>
+                </div>
+            </section>
                 <p class="text-center mb-4">📁 أو اختر ملف صوتي</p>
                 <input type="file" id="audio-file" accept=".wav,.ogg,.mp3,.m4a" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-500 file:text-white hover:file:bg-blue-600">
             </div>
@@ -77,7 +82,7 @@
 
     <script>
         // Handle recording (simplified for demo; assumes browser recording API)
-        const startRecordingBtn = document.getElementById('start-recording');
+
         const audioFileInput = document.getElementById('audio-file');
         const resultsDiv = document.getElementById('results');
         const pronunciationFeedbackDiv = document.getElementById('pronunciation-feedback');
@@ -85,6 +90,94 @@
         const correctedTextAudioDiv = document.getElementById('corrected-text-audio');
         const feedbackAudioDiv = document.getElementById('feedback-audio');
         const errorsListDiv = document.getElementById('errors-list');
+
+        const startButton = document.getElementById('startRecording');
+        const stopButton = document.getElementById('stopRecording');
+        const audioPlayback = document.getElementById('audioPlayback');
+        const audioUpload = document.getElementById('audioUpload');
+        let mediaRecorder;
+        let audioChunks = []; 
+
+        // Demander l'accès au microphone et démarrer l'enregistrement
+        startButton.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+
+                // Réinitialiser les morceaux audio
+                audioChunks = [];
+
+                // Collecter les données audio
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                // Lorsque l'enregistrement est arrêté
+                mediaRecorder.onstop = () => {
+    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+    const audioUrl = URL.createObjectURL(audioBlob);
+    audioPlayback.src = audioUrl;
+    audioPlayback.style.display = 'block';
+    audioPlayback.controls = true;
+
+    // Réinitialiser l'interface
+    startButton.style.display = 'inline-block';
+    stopButton.style.display = 'none';
+
+    // Envoyer l'audio à la route /upload
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'recording.wav');
+    formData.append('id_eleve', 1); // Remplacez par l'ID réel de l'élève
+    formData.append('idTexte', 1); // Remplacez par l'ID réel du texte
+
+    fetch('/uploadd', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Réponse du serveur :', data);
+        if (data.success) {
+            // Mettre à jour la section des résultats
+            document.getElementById('results').innerHTML = `
+                <p>Transcription : ${data.transcription}</p>
+                <p>Message : ${data.message}</p>
+                <pre>${JSON.stringify(data.pronunciation_corrections, null, 2)}</pre>
+            `;
+            // Mettre à jour la section des corrections
+            if (data.pronunciation_corrections && data.pronunciation_corrections.errors) {
+                const correctionsHtml = data.pronunciation_corrections.errors.map(error => `
+                    <p>Mot : ${error.word} - Correction : ${error.suggested_pronunciation}</p>
+                    ${error.audio_file ? `<audio src="${error.audio_file}" controls></audio>` : ''}
+                `).join('');
+                document.getElementById('corrections').innerHTML = correctionsHtml;
+            }
+        } else {
+            document.getElementById('results').innerHTML = `<p>Erreur : ${data.error || data.message}</p>`;
+        }
+    })
+    .catch(error => {
+        console.error('Erreur lors de l\'envoi :', error);
+        document.getElementById('results').innerHTML = `<p>Erreur : ${error.message}</p>`;
+    });
+};
+
+                // Démarrer l'enregistrement
+                mediaRecorder.start();
+                startButton.style.display = 'none';
+                stopButton.style.display = 'inline-block';
+            } catch (err) {
+                console.error('Erreur lors de l\'accès au microphone :', err);
+                alert('Impossible d\'accéder au microphone. Veuillez vérifier les permissions.');
+            }
+        });
+
+        // Arrêter l'enregistrement
+        stopButton.addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+        });
 
         // Handle file upload
         audioFileInput.addEventListener('change', async (event) => {
@@ -210,10 +303,7 @@
             }
         }
 
-        // Simplified recording (placeholder; implement browser MediaRecorder API as needed)
-        startRecordingBtn.addEventListener('click', () => {
-            alert('ميزة التسجيل غير مدعومة حالياً. يرجى رفع ملف صوتي.');
-        });
+     
     </script>
 </body>
 </html>

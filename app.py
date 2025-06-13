@@ -1,7 +1,8 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template ,send_from_directory
 from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from flask_cors import CORS
 import os
 import json
 import numpy as np
@@ -15,6 +16,8 @@ AUDIO_CORRECTIONS_FOLDER = 'audio_corrections'  # NEW: Folder for pronunciation 
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['AUDIO_CORRECTIONS_FOLDER'] = AUDIO_CORRECTIONS_FOLDER
+CORS(app, origins=["http://localhost:3000"])
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost:3306/agentiai'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -71,6 +74,8 @@ class Texte(db.Model):
 
 with app.app_context():
     db.create_all()
+
+    
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -274,6 +279,11 @@ def analyze_audio_quality(record_id):
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/audio_corrections/<path:filename>')
+def serve_audio_corrections(filename):
+    return send_from_directory(app.config['AUDIO_CORRECTIONS_FOLDER'], filename)
 
 @app.route("/retry_transcription/<int:record_id>", methods=["POST"])
 def retry_transcription(record_id):
@@ -602,4 +612,4 @@ def get_audio_feedback(record_id):
         }), 500
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True,host='127.0.0.1',port=5005)
